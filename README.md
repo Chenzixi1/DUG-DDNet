@@ -1,4 +1,4 @@
-# MonoFlex
+# DUG-DDNet
 Released code for "DUG-DDNet:Deep Localization Uncertainty Guided Dual-branch Deep Fusion Network"
 
 
