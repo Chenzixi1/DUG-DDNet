@@ -1,4 +1,4 @@
-export PYTHONPATH=/home/czx/Notebook/MonoFlex:$PYTHONPATH
+export PYTHONPATH=/home/czx/Notebook/DUG-DDNet:$PYTHONPATH
 
 # trian 
 CUDA_VISIBLE_DEVICES=0 python tools/plain_train_net.py --batch_size 4 --config runs/monoflex_depth.yaml --output output/exp
