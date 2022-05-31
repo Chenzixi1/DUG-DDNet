@@ -1,5 +1,5 @@
 # DUG-DDNet
-Released code for "DUG-DDNet:Deep Localization Uncertainty Guided Dual-branch Deep Fusion Network"
+Released code for "DUG-DDNet: Deep Localization Uncertainty Guided Dual-branch Deep Fusion Network"
 
 
 **Work in progress.**
