@@ -69,7 +69,7 @@ The model will be evaluated periodically (can be adjusted in the CONFIG) during 
 CUDA_VISIBLE_DEVICES=0 python tools/plain_train_net.py --config runs/monoflex_depth.yaml --ckpt YOUR_CKPT  --eval
 ```
 
-You can also specify --vis when evaluation to visualize the predicted heatmap and 3D bounding boxes. The pretrained model for train/val split and logs are here.
+You can also specify --vis when evaluation to visualize the predicted heatmap and 3D bounding boxes. The pretrained model for train/val split is [here](https://pan.baidu.com/s/1w_QsYJGLedFrWpudMbFhNQ?pwd=bhq2) and logs are [here](https://pan.baidu.com/s/1ipfIBlK2RHxKaqxLNqdsJA?pwd=agre).
 
 **Note:** we observe an obvious variation of the performance for different runs and we are still investigating possible solutions to stablize the results, though it may inevitably due to the utilized uncertainties.
 
