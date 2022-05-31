@@ -60,7 +60,7 @@ Then modify the paths in config/paths_catalog.py according to your data path.
 Training with one GPU. (TODO: The multi-GPU training will be further tested.)
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python tools/plain_train_net.py --batch_size 8 --config runs/monoflex_depth.yaml --output output/exp
+CUDA_VISIBLE_DEVICES=0 python tools/plain_train_net.py --batch_size 4 --config runs/monoflex_depth.yaml --output output/exp
 ```
 
 The model will be evaluated periodically (can be adjusted in the CONFIG) during training and you can also evaluate a checkpoint with
