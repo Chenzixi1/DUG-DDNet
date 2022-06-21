@@ -81,7 +81,8 @@ def inference(
         use_depth=False,
         show=False,
         test=False,
-        testdropout=False
+        testdropout=False,
+        eval_score_iou=False,
 ):
     device = torch.device(device)
     num_devices = comm.get_world_size()
