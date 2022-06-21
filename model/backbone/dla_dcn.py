@@ -23,18 +23,23 @@ def build_backbone(cfg):
                 pretrained=cfg.MODEL.PRETRAIN,
                 down_ratio=cfg.MODEL.BACKBONE.DOWN_RATIO,
                 last_level=5,
+                traindropout=cfg.MODEL.DROPOUT,
+                testdropout=cfg.TEST.DROPOUT,
+                p=cfg.MODEL.P,
+                T=cfg.MODEL.T,
             )
     
     return model
 
 class DLASeg(nn.Module):
-    def __init__(self, base_name, pretrained, down_ratio, last_level):
+    def __init__(self, base_name, pretrained, down_ratio, last_level, traindropout=False, testdropout=False, p=0.3, T=10):
         super(DLASeg, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
         
         self.first_level = int(np.log2(down_ratio))
         self.last_level = last_level
         self.base = globals()[base_name](pretrained=pretrained)
+        self.base_depth = globals()[base_name](pretrained=pretrained)
 
         channels = self.base.channels
         scales = [2 ** i for i in range(len(channels[self.first_level:]))]
@@ -44,18 +49,76 @@ class DLASeg(nn.Module):
 
         self.ida_up = IDAUp(self.out_channels, channels[self.first_level:self.last_level], 
                             [2 ** i for i in range(self.last_level - self.first_level)])
+        self.p = p
+        self.T = T
+        self.dropout = nn.Dropout(p=self.p)
+        self.traindropout = traindropout
+        self.testdropout = testdropout
 
-    def forward(self, x):
+    # self.base_layer, self.level0, self.level1, self.level2, self.level3, self.level4, self.level5
+    def forward(self, image, depth):
+
         # x: list of features with stride = 1, 2, 4, 8, 16, 32
-        x = self.base(x)
-        x = self.dla_up(x)
+        depth = torch.cat([depth, depth, depth], dim=1)
 
+        # backbone: Dual-branch hierarchy feature extraction
         y = []
-        for i in range(self.last_level - self.first_level):
-            y.append(x[i].clone())
-        self.ida_up(y, 0, len(y))
+        depth = self.base_depth.base_layer(depth)
+        image = self.base.base_layer(image)
+        depth = self.base_depth.level0(depth)
+        image = self.base.level0(image)
+        y.append(image)
 
-        return y[-1]
+        depth = self.base_depth.level1(depth)
+        image = self.base.level1(image) + depth
+        y.append(image)
+
+        depth = self.base_depth.level2(depth)
+        image = self.base.level2(image) + depth
+        y.append(image)
+
+        depth = self.base_depth.level3(depth)
+        image = self.base.level3(image) + depth
+        y.append(image)
+
+        depth = self.base_depth.level4(depth)
+        image = self.base.level4(image) + depth
+        y.append(image)
+
+        depth = self.base_depth.level5(depth)
+        image = self.base.level5(image) + depth
+        y.append(image)
+        image = y
+
+        image = self.dla_up(image)
+
+        out = image[0: self.last_level - self.first_level]
+
+        # dropout for epistemic uncertainty
+        # dropout test
+        if self.testdropout and self.training is False:
+            outs = []
+            for t in range(self.T):
+                out2 = []
+                for i in range(len(out)):
+                    o = self.dropout(out[i])
+                    out2.append(o)
+                self.ida_up(out2, 0, len(out2))
+                outs.append(out2[-1])
+            return outs
+
+        # dropout train
+        out2 = []
+        for i in range(len(out)):
+            o = out[i]
+            if self.traindropout and self.training:
+                o = self.dropout(o)
+            out2.append(o)
+        out = out2
+
+        self.ida_up(out, 0, len(out))
+
+        return out[-1]
 
 def get_model_url(data='imagenet', name='dla34', hash='ba72cf86'):
     return join('http://dl.yf.io/dla/models', data, '{}-{}.pth'.format(name, hash))
@@ -88,7 +151,6 @@ class BasicBlock(nn.Module):
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
-
         out = self.conv2(out)
         out = self.bn2(out)
 
@@ -284,14 +346,6 @@ class DLA(nn.Module):
         self.level5 = Tree(levels[5], block, channels[4], channels[5], 2,
                            level_root=True, root_residual=residual_root)
 
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        #         m.weight.data.normal_(0, math.sqrt(2. / n))
-        #     elif isinstance(m, nn.BatchNorm2d):
-        #         m.weight.data.fill_(1)
-        #         m.bias.data.zero_()
-
     def _make_level(self, block, inplanes, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or inplanes != planes:
@@ -389,6 +443,7 @@ class DeformConv(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
+        # self.conv = nn.Conv2d(chi, cho, kernel_size=(3, 3), stride=1, padding=1, dilation=1)
 
     def forward(self, x):
         x = self.conv(x)
@@ -463,8 +518,14 @@ class Interpolate(nn.Module):
         return x
 
 if __name__ == '__main__':
-    model = build_backbone(num_layers=34).cuda()
-    x = torch.rand(2, 3, 384, 1280).cuda()
-    y = model(x)
+    model = DLASeg(base_name="dla34",
+           pretrained=True,
+           down_ratio=4,
+           last_level=5,
+           ).cuda()
+    # print(model)
+    img = torch.rand(2, 3, 384, 1280).cuda()
+    depth = torch.rand(2, 1, 384, 1280).cuda()
+    y = model(img, depth)
 
     print(y.shape)
